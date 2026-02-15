@@ -9,9 +9,19 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.74.0",
+    "@solana-agent-kit/plugin-misc": "^2.0.6",
+    "@solana/web3.js": "^1.98.4",
+    "agent-twitter-client": "^0.0.18",
+    "bs58": "^6.0.0",
+    "date-fns": "^4.1.0",
+    "lucide-react": "^0.563.0",
     "next": "16.1.6",
+    "openai": "^6.21.0",
     "react": "19.2.3",
-    "react-dom": "19.2.3"
+    "react-dom": "19.2.3",
+    "recharts": "^3.7.0",
+    "solana-agent-kit": "^2.0.10"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

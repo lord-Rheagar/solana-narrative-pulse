@@ -1,0 +1,260 @@
+{
+  "editions": [
+    {
+      "id": "E-2026-W7-15-2311-i7h",
+      "detectedAt": "2026-02-15T17:41:23.676Z",
+      "narratives": [
+        {
+          "id": "nar-1771177200049-38mam2",
+          "name": "Solana Developer Dynamo",
+          "slug": "solana-developer-dynamo",
+          "category": "Infrastructure",
+          "confidence": 95,
+          "signalStrength": 93.65019160622937,
+          "trend": "rising",
+          "summary": "Intense developer activity across key Solana projects is fueling a wave of innovation and tool building that reinforces the ecosystem’s technical backbone.",
+          "ideaCount": 5,
+          "ideaTitles": [
+            "Anchor Program Hot-Reload Development Server",
+            "Cross-Org Breaking Change Impact Analyzer",
+            "Jito Bundle Success Rate Optimizer",
+            "Multi-Protocol Integration Test Suite Generator",
+            "Real-Time Program Compute Unit Profiler"
+          ],
+          "signalCount": 5,
+          "status": "new",
+          "confidenceDelta": 0
+        },
+        {
+          "id": "nar-1771177200051-itai84",
+          "name": "DEX & Meme Momentum",
+          "slug": "dex-meme-momentum",
+          "category": "Memecoins",
+          "confidence": 90,
+          "signalStrength": 85,
+          "trend": "rising",
+          "summary": "Explosive trading volumes on DEX platforms, combined with boosted meme token narratives, signal a viral momentum with potential long-tail effects in market engagement.",
+          "ideaCount": 5,
+          "ideaTitles": [
+            "Meme Token Boost Pool Coordinator",
+            "Viral Momentum Prediction Engine",
+            "Pumpfun Graduation Sniper Bot",
+            "Real-Time DEX Arbitrage Scanner",
+            "Meme Token Social Sentiment Aggregator"
+          ],
+          "signalCount": 3,
+          "status": "new",
+          "confidenceDelta": 0
+        },
+        {
+          "id": "nar-1771177200051-raljcs",
+          "name": "Gaming Marketplace Boom",
+          "slug": "gaming-marketplace-boom",
+          "category": "Gaming",
+          "confidence": 85,
+          "signalStrength": 100,
+          "trend": "rising",
+          "summary": "A remarkable 33.6% market cap growth in 24 hours within the Gaming Marketplace category underscores the rising adoption of in-game asset trading platforms on Solana.",
+          "ideaCount": 5,
+          "ideaTitles": [
+            "Gaming Asset Liquidation Bot",
+            "Cross-Game Asset Swap Protocol",
+            "Gaming Marketplace Blinks Generator",
+            "Gaming Asset Performance Analytics Dashboard",
+            "Gaming Tournament Prize Pool Escrow"
+          ],
+          "signalCount": 1,
+          "status": "new",
+          "confidenceDelta": 0
+        }
+      ],
+      "signalCount": 151,
+      "processingTime": 162629
+    },
+    {
+      "id": "E-2026-W7-15-2256-xyv",
+      "detectedAt": "2026-02-15T17:26:52.645Z",
+      "narratives": [
+        {
+          "id": "nar-1771176340497-ufivi1",
+          "name": "Gaming Marketplace Surge",
+          "slug": "gaming-marketplace-surge",
+          "category": "Gaming",
+          "confidence": 85,
+          "signalStrength": 100,
+          "trend": "rising",
+          "summary": "Gaming marketplaces on Solana are experiencing rapid market cap growth, driven by rising player demand and robust activity in digital asset trading.",
+          "ideaCount": 5,
+          "ideaTitles": [
+            "Gaming Asset Flash Loan Arbitrage Bot",
+            "Session Key Gaming Wallet",
+            "Real-Time Gaming Asset Price Oracle",
+            "Cross-Game Asset Rental Protocol",
+            "Gaming Blinks Marketplace"
+          ],
+          "signalCount": 1,
+          "status": "stable",
+          "confidenceDelta": 0
+        },
+        {
+          "id": "nar-1771176340498-niyzte",
+          "name": "Developer Ecosystem Boom",
+          "slug": "developer-ecosystem-boom",
+          "category": "Infrastructure",
+          "confidence": 90,
+          "signalStrength": 100,
+          "trend": "rising",
+          "summary": "Robust developer activity across Solana Foundation projects and key ecosystem players showcases a vibrant commitment to innovation and long-term network improvements.",
+          "ideaCount": 5,
+          "ideaTitles": [
+            "Anchor Program Dependency Resolver",
+            "Multi-Org Breaking Change Alerter",
+            "SVM Fork Compatibility Matrix",
+            "Jito Bundle Optimization Simulator",
+            "Solana Program Performance Profiler"
+          ],
+          "signalCount": 3,
+          "status": "new",
+          "confidenceDelta": 0
+        },
+        {
+          "id": "nar-1771176340498-60jw0a",
+          "name": "Meme & DEX Trading Frenzy",
+          "slug": "meme-dex-trading-frenzy",
+          "category": "Memecoins",
+          "confidence": 80,
+          "signalStrength": 86.99758228201186,
+          "trend": "rising",
+          "summary": "A surge in trending meme tokens combined with volatile DEX trading signals reflects a speculative frenzy in the Solana ecosystem.",
+          "ideaCount": 5,
+          "ideaTitles": [
+            "Meme Token Volatility Arbitrage Bot",
+            "DexScreener Boost Signal Aggregator",
+            "Pumpfun Graduation Predictor",
+            "Meme Token Whale Wallet Mirror",
+            "Meme Token Circuit Breaker"
+          ],
+          "signalCount": 3,
+          "status": "new",
+          "confidenceDelta": 0
+        },
+        {
+          "id": "nar-1771176340498-opyaw9",
+          "name": "DeFi TVL Dynamics and Protocol Errors",
+          "slug": "defi-tvl-dynamics-and-protocol-errors",
+          "category": "DeFi",
+          "confidence": 75,
+          "signalStrength": 90,
+          "trend": "stable",
+          "summary": "DeFi protocols on Solana show mixed signals with significant TVL flows alongside notable transactional errors, indicating both opportunity and risk.",
+          "ideaCount": 5,
+          "ideaTitles": [
+            "Protocol Health Circuit Breaker",
+            "Error Rate Arbitrage Bot",
+            "Protocol Stress Insurance Pool",
+            "Real-Time Protocol Forensics Dashboard",
+            "Liquidity Shock Absorber"
+          ],
+          "signalCount": 3,
+          "status": "new",
+          "confidenceDelta": 0
+        }
+      ],
+      "signalCount": 148,
+      "processingTime": 156224
+    },
+    {
+      "id": "E-2026-W7-15-2253-q7x",
+      "detectedAt": "2026-02-15T17:23:14.356Z",
+      "narratives": [
+        {
+          "id": "nar-1771176118567-z10kvn",
+          "name": "Gaming Marketplace Surge",
+          "slug": "gaming-marketplace-surge",
+          "category": "Gaming",
+          "confidence": 85,
+          "signalStrength": 100,
+          "trend": "rising",
+          "summary": "The gaming marketplace segment on Solana is witnessing explosive growth, with a 33.7% surge in market cap in just 24 hours.",
+          "ideaCount": 5,
+          "ideaTitles": [
+            "Gaming Asset Arbitrage Bot",
+            "Guild Treasury Manager",
+            "Gaming NFT Rental Protocol",
+            "Gaming Performance Analytics Dashboard",
+            "Cross-Game Asset Bridge"
+          ],
+          "signalCount": 1,
+          "status": "new",
+          "confidenceDelta": 0
+        },
+        {
+          "id": "nar-1771176118568-nowznv",
+          "name": "Developer Ecosystem Explosion",
+          "slug": "developer-ecosystem-explosion",
+          "category": "Infrastructure",
+          "confidence": 90,
+          "signalStrength": 100,
+          "trend": "rising",
+          "summary": "Robust developer and organizational activity across Solana indicates a rapidly growing ecosystem that is actively enhancing the network's infrastructure.",
+          "ideaCount": 5,
+          "ideaTitles": [
+            "Anchor Program Analytics Dashboard",
+            "SVM Fork Compatibility Checker",
+            "Anchor IDL Registry & Search",
+            "Solana Program Upgrade Impact Simulator",
+            "Cross-Org Breaking Change Alert System"
+          ],
+          "signalCount": 3,
+          "status": "new",
+          "confidenceDelta": 0
+        },
+        {
+          "id": "nar-1771176118568-ecqmdj",
+          "name": "Meme Token & DEX Boosted Frenzy",
+          "slug": "meme-token-dex-boosted-frenzy",
+          "category": "Memecoins",
+          "confidence": 80,
+          "signalStrength": 75,
+          "trend": "rising",
+          "summary": "Emerging meme tokens and several boosted DexScreener signals highlight a speculative burst in community-driven digital assets on Solana.",
+          "ideaCount": 5,
+          "ideaTitles": [
+            "Meme Token Narrative Generator",
+            "Boost Pool Aggregator",
+            "Meme Token Graduation Tracker",
+            "Viral Meme Token Launchpad",
+            "Cultural Momentum Scanner"
+          ],
+          "signalCount": 3,
+          "status": "new",
+          "confidenceDelta": 0
+        },
+        {
+          "id": "nar-1771176118568-lk8uj1",
+          "name": "DeFi Protocol Reliability Under Scrutiny",
+          "slug": "defi-protocol-reliability-under-scrutiny",
+          "category": "DeFi",
+          "confidence": 75,
+          "signalStrength": 75,
+          "trend": "declining",
+          "summary": "High error rates in key onchain transactions for leading DeFi protocols have raised concerns about the reliability of deployed smart contracts.",
+          "ideaCount": 5,
+          "ideaTitles": [
+            "DeFi Circuit Breaker",
+            "Transaction Retry Bot",
+            "Safe Route Aggregator",
+            "Protocol Stress Testing Service",
+            "Failure Pattern Recognition Engine"
+          ],
+          "signalCount": 2,
+          "status": "new",
+          "confidenceDelta": 0
+        }
+      ],
+      "signalCount": 148,
+      "processingTime": 158515
+    }
+  ],
+  "lastUpdated": "2026-02-15T17:41:23.676Z"
+}
