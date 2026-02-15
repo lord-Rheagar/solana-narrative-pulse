@@ -96,6 +96,7 @@ export default function DashboardPage() {
           },
         }),
       });
+      if (!res.ok) throw new Error(`Server error (${res.status})`);
       const json = await res.json();
       if (json.success && json.data) {
         const detail = json.data as { problemToSolve: string; possibleSolution: string };
@@ -143,6 +144,7 @@ export default function DashboardPage() {
           previousIdeaTitles: seenIdeaTitles.current,
         }),
       });
+      if (!res.ok) throw new Error(`Server error (${res.status})`);
       const json = await res.json();
 
       if (json.success) {
@@ -181,6 +183,7 @@ export default function DashboardPage() {
     try {
       // ── Phase 1: Fetch signals (fast, ~3-5s) ──────────────
       const sigRes = await fetch('/api/signals');
+      if (!sigRes.ok) throw new Error(`Signal fetch failed (${sigRes.status})`);
       const sigJson = await sigRes.json();
 
       clearInterval(signalInterval);
@@ -201,6 +204,7 @@ export default function DashboardPage() {
 
       try {
         const res = await fetch('/api/narratives');
+        if (!res.ok) throw new Error(`Narrative detection failed (${res.status})`);
         const json = await res.json();
 
         if (json.success) {
@@ -234,6 +238,7 @@ export default function DashboardPage() {
   async function fetchSignals() {
     try {
       const res = await fetch('/api/signals');
+      if (!res.ok) throw new Error(`Signal fetch failed (${res.status})`);
       const json = await res.json();
       if (json.success) {
         setSignals(json.data.signals || []);
