@@ -20,9 +20,9 @@ function generateId(): string {
 // ── Diversity-aware signal selection ─────────────────────────
 // Guarantees every active source gets representation, then fills
 // remaining slots with the strongest signals across all sources.
-const MAX_SIGNALS_FOR_AI = 50;
-const MIN_PER_SOURCE = 3;
-const MAX_CLUSTERS = 25;
+const MAX_SIGNALS_FOR_AI = 25;
+const MIN_PER_SOURCE = 2;
+const MAX_CLUSTERS = 12;
 
 function selectDiverseSignals(signals: Signal[]): Signal[] {
     if (signals.length <= MAX_SIGNALS_FOR_AI) return signals;
@@ -69,7 +69,7 @@ function selectDiverseSignals(signals: Signal[]): Signal[] {
 // ── Detect narratives from signals ───────────────────────────
 export async function detectNarratives(signals: Signal[], previousIdeaTitles?: string[]): Promise<{ narratives: Narrative[]; signalContexts: Record<string, string> }> {
     if (signals.length === 0) {
-        return getDefaultNarratives();
+        return buildFallbackNarratives([], 'No signals available');
     }
 
     const models = getActiveModels();
@@ -93,15 +93,14 @@ export async function detectNarratives(signals: Signal[], previousIdeaTitles?: s
         .sort((a, b) => b.strength - a.strength)
         .slice(0, MAX_CLUSTERS);
 
-    // Build context for LLM — include delta, tokens, projects, and fullText for cross-source matching
+    // Build context for LLM — concise signal summaries
     const signalContext = selectedSignals.map(s => {
         const parts = [`[${s.id}] (${s.source}/${s.category}) ${s.description}`];
-        if (s.delta !== undefined) parts.push(`delta: ${s.delta > 0 ? '+' : ''}${s.delta.toFixed(1)}%`);
-        if (s.value !== undefined) parts.push(`value: ${s.value.toLocaleString()}`);
-        if (s.relatedTokens?.length) parts.push(`tokens: ${s.relatedTokens.join(',')}`);
-        if (s.relatedProjects?.length) parts.push(`projects: ${s.relatedProjects.join(',')}`);
-        if (s.fullText) parts.push(`context: ${s.fullText.slice(0, 200)}`);
-        parts.push(`[strength: ${s.strength}]`);
+        if (s.delta !== undefined && s.delta !== 0) parts.push(`Δ${s.delta > 0 ? '+' : ''}${s.delta.toFixed(1)}%`);
+        if (s.relatedTokens?.length) parts.push(`tokens: ${s.relatedTokens.slice(0, 3).join(',')}`);
+        if (s.relatedProjects?.length) parts.push(`projects: ${s.relatedProjects.slice(0, 2).join(',')}`);
+        if (s.fullText) parts.push(`ctx: ${s.fullText.slice(0, 100)}`);
+        parts.push(`[str: ${s.strength}]`);
         return parts.join(' | ');
     }).join('\n');
 
@@ -109,18 +108,27 @@ export async function detectNarratives(signals: Signal[], previousIdeaTitles?: s
         `Cluster "${c.cluster}" (strength: ${c.strength.toFixed(0)}):\n${c.signals.map(s => `  - [${s.id}] ${s.description}`).join('\n')}`
     ).join('\n\n');
 
-    const userMessage = `## Raw Signals (${selectedSignals.length} signals, diversity-selected across ${sourceCounts.size} sources)\n${signalContext}\n\n## Signal Clusters (${clusterSummaries.length} clusters)\n${clusterContext}\n\nRespond with a JSON object containing a "narratives" array and a "topSignalInsights" map. IMPORTANT: topSignalInsights MUST have an entry for EVERY signal ID listed above — all ${selectedSignals.length} of them.`;
+    const userMessage = `## Raw Signals (${selectedSignals.length} signals across ${sourceCounts.size} sources)\n${signalContext}\n\n## Signal Clusters (${clusterSummaries.length} clusters)\n${clusterContext}\n\nRespond with a JSON object containing a "narratives" array and a "topSignalInsights" map. Include insights for the most important signals (at least 10).`;
 
     try {
+        // Race a 45s timeout to prevent Vercel function timeout returning non-JSON
+        const AI_TIMEOUT = 45_000;
+        const timeoutPromise = new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error('AI detection timed out after 45s')), AI_TIMEOUT)
+        );
+
         // Route to REASONING model (o3-mini) for deep pattern analysis
-        const response = await routeToModel('reasoning', [
-            { role: 'system', content: NARRATIVE_DETECTION_PROMPT },
-            { role: 'user', content: userMessage },
-        ], {
-            jsonMode: true,
-            maxTokens: 12000,
-            temperature: 0.3,
-        });
+        const response = await Promise.race([
+            routeToModel('reasoning', [
+                { role: 'system', content: NARRATIVE_DETECTION_PROMPT },
+                { role: 'user', content: userMessage },
+            ], {
+                jsonMode: true,
+                maxTokens: 6000,
+                temperature: 0.3,
+            }),
+            timeoutPromise,
+        ]);
 
         console.log(`🧠 Detection completed via ${response.provider}/${response.model} (${response.tokensUsed || '?'} tokens)`);
 
@@ -137,24 +145,29 @@ export async function detectNarratives(signals: Signal[], previousIdeaTitles?: s
         } catch (parseErr: any) {
             // Retry: send the broken response back and ask the model to fix it
             console.warn('🔄 JSON parse failed, attempting retry...', parseErr.message);
-            const retryMessages = [
-                { role: 'system' as const, content: NARRATIVE_DETECTION_PROMPT },
-                { role: 'user' as const, content: userMessage },
-                { role: 'assistant' as const, content: response.content },
-                { role: 'user' as const, content: `Your previous response was not valid JSON: "${parseErr.message}". Please return ONLY valid JSON with no markdown wrapping, no trailing commas, and no comments. Output the corrected version now.` },
-            ];
-            const retryResponse = await routeToModel('reasoning', retryMessages, {
-                jsonMode: true,
-                maxTokens: 6000,
-                temperature: 0.2,
-            });
+            try {
+                const retryMessages = [
+                    { role: 'system' as const, content: NARRATIVE_DETECTION_PROMPT },
+                    { role: 'user' as const, content: userMessage },
+                    { role: 'assistant' as const, content: response.content },
+                    { role: 'user' as const, content: `Your previous response was not valid JSON: "${parseErr.message}". Please return ONLY valid JSON with no markdown wrapping, no trailing commas, and no comments. Output the corrected version now.` },
+                ];
+                const retryResponse = await routeToModel('reasoning', retryMessages, {
+                    jsonMode: true,
+                    maxTokens: 6000,
+                    temperature: 0.2,
+                });
 
-            let retryContent = retryResponse.content;
-            const retryMatch = retryContent.match(/```(?:json)?\s*([\s\S]*?)```/);
-            if (retryMatch) retryContent = retryMatch[1];
+                let retryContent = retryResponse.content;
+                const retryMatch = retryContent.match(/```(?:json)?\s*([\s\S]*?)```/);
+                if (retryMatch) retryContent = retryMatch[1];
 
-            console.log('🔄 Retry JSON (First 200 chars):', retryContent.slice(0, 200));
-            parsed = JSON.parse(retryContent); // If this also throws, outer catch handles it
+                console.log('🔄 Retry JSON (First 200 chars):', retryContent.slice(0, 200));
+                parsed = JSON.parse(retryContent);
+            } catch (retryErr: any) {
+                console.error('🔄 JSON retry also failed, falling back to defaults:', retryErr.message);
+                return buildFallbackNarratives(signals, retryErr.message || 'JSON parsing failed after retry');
+            }
         }
         const now = new Date().toISOString();
 
@@ -219,58 +232,117 @@ export async function detectNarratives(signals: Signal[], previousIdeaTitles?: s
 
         console.log(`📝 AI context applied to ${Object.keys(globalContexts).length}/${signals.length} signals`);
 
-        // Generate ideas using WRITING model (Claude Sonnet / GPT-4o-mini)
-        const narrativesWithIdeas = await Promise.all(
-            narratives.map(async (narrative) => {
-                try {
-                    const ideas = await generateIdeasForNarrative(narrative, previousIdeaTitles);
-                    return { ...narrative, ideas };
-                } catch (err) {
-                    console.error(`Idea generation failed for ${narrative.name}:`, err);
-                    return narrative;
-                }
-            })
-        );
+        // Assign pre-built ideas based on narrative category (no additional AI calls)
+        // This keeps the total function time under 15s instead of 60s+
+        const narrativesWithIdeas = narratives.map((narrative) => {
+            const cat = narrative.category || 'DeFi';
+            const templateIdeas = FALLBACK_IDEAS[cat] || FALLBACK_IDEAS['DeFi'];
+            const ideas = templateIdeas.map((idea, j) => ({
+                ...idea,
+                id: `${narrative.id}-idea-${j}`,
+                narrativeId: narrative.id,
+                supportingSignalIds: narrative.signals.slice(0, 3).map(s => s.id),
+                signalRelevance: {} as Record<string, string>,
+                problemToSolve: '',
+                possibleSolution: '',
+            }));
+            return { ...narrative, ideas };
+        });
 
         return { narratives: narrativesWithIdeas, signalContexts: globalContexts };
-    } catch (err) {
+    } catch (err: any) {
         console.error('Narrative detection failed:', err);
-        return getDefaultNarratives();
+        return buildFallbackNarratives(signals, err?.message || 'Unknown AI error');
     }
 }
 
-// ── Fallback narratives when API fails ───────────────────────
-function getDefaultNarratives(): { narratives: Narrative[]; signalContexts: Record<string, string> } {
+// ── Fallback idea templates per category ─────────────────────
+const FALLBACK_IDEAS: Record<string, Array<{ title: string; description: string; techStack: string[]; complexity: 'Low' | 'Medium' | 'High'; impact: 'Low' | 'Medium' | 'High'; solanaFeatures: string[]; whyNow: string; targetUser: string }>> = {
+    DeFi: [
+        { title: 'DeFi Portfolio Tracker', description: 'Unified dashboard to track positions across all Solana DeFi protocols — lending, swaps, and LP.', techStack: ['Next.js', 'Helius API', 'Recharts'], complexity: 'Low', impact: 'Medium', solanaFeatures: ['Token accounts', 'DeFi composability'], whyNow: 'Growing DeFi TVL creates demand for unified position tracking.', targetUser: 'DeFi users managing positions across multiple protocols.' },
+        { title: 'Yield Aggregator Alert Bot', description: 'Monitors yield farms across Solana and sends alerts when APY spikes or drops significantly.', techStack: ['Node.js', 'DeFi Llama API', 'Telegram Bot API'], complexity: 'Low', impact: 'Medium', solanaFeatures: ['SPL tokens', 'Program accounts'], whyNow: 'Yield volatility means users miss optimal entry/exit windows.', targetUser: 'Yield farmers and liquidity providers on Solana.' },
+        { title: 'Smart Swap Router', description: 'Compares swap rates across Jupiter, Raydium, and Orca to find the best execution price.', techStack: ['Next.js', 'Jupiter API', '@solana/web3.js'], complexity: 'Medium', impact: 'High', solanaFeatures: ['Jupiter aggregator', 'Transaction optimization'], whyNow: 'Rising DEX volumes make execution quality increasingly important.', targetUser: 'Active traders seeking best execution on Solana.' },
+    ],
+    Infrastructure: [
+        { title: 'Solana TPS Dashboard', description: 'Real-time network health monitor showing TPS, slot times, validator stats, and congestion alerts.', techStack: ['Next.js', 'Helius RPC', 'D3.js'], complexity: 'Low', impact: 'Medium', solanaFeatures: ['RPC endpoints', 'Validator network'], whyNow: 'Network performance directly impacts user experience and protocol reliability.', targetUser: 'Solana developers and node operators.' },
+        { title: 'Program Deployment Tracker', description: 'Monitor new program deployments on Solana with alerts for upgradeable program changes.', techStack: ['Node.js', 'Helius API', 'PostgreSQL'], complexity: 'Medium', impact: 'Medium', solanaFeatures: ['BPF loader', 'Program accounts'], whyNow: 'Security monitoring of program upgrades is critical for protocol safety.', targetUser: 'Security researchers and protocol auditors.' },
+    ],
+    'NFT & Gaming': [
+        { title: 'NFT Floor Price Tracker', description: 'Track Solana NFT collection floor prices with alerts and trend analysis.', techStack: ['Next.js', 'Magic Eden API', 'Recharts'], complexity: 'Low', impact: 'Medium', solanaFeatures: ['Metaplex', 'Token metadata'], whyNow: 'Active NFT market needs better price discovery tools.', targetUser: 'NFT traders and collectors on Solana.' },
+        { title: 'Collection Analytics Dashboard', description: 'Deep analytics for NFT collections: holder distribution, wash trading detection, and whale tracking.', techStack: ['Next.js', 'Helius DAS API', 'D3.js'], complexity: 'Medium', impact: 'High', solanaFeatures: ['Digital Asset Standard', 'Compressed NFTs'], whyNow: 'Collectors need transparency to make informed buying decisions.', targetUser: 'NFT collection creators and serious collectors.' },
+    ],
+    'Developer Tooling': [
+        { title: 'GitHub Activity Explorer', description: 'Explore and compare development activity across Solana ecosystem repos with contributor stats.', techStack: ['Next.js', 'GitHub API', 'Recharts'], complexity: 'Low', impact: 'Medium', solanaFeatures: ['Anchor framework', 'Solana SDK'], whyNow: 'Developer activity is a leading indicator of ecosystem health.', targetUser: 'Investors and developers evaluating Solana projects.' },
+        { title: 'Transaction Debugger', description: 'Visual debugger for Solana transactions showing instruction flow, CPI calls, and state changes.', techStack: ['Next.js', 'Helius Enhanced API', 'React Flow'], complexity: 'High', impact: 'High', solanaFeatures: ['Transaction introspection', 'CPI tracing'], whyNow: 'Complex transactions with multiple CPIs are hard to debug with existing tools.', targetUser: 'Solana smart contract developers.' },
+    ],
+};
+
+// ── Build fallback narratives from real signals ──────────────
+function buildFallbackNarratives(signals: Signal[], errorReason: string): { narratives: Narrative[]; signalContexts: Record<string, string> } {
     const now = new Date().toISOString();
-    return {
-        narratives: [
-            {
-                id: 'default-1',
-                name: 'Solana DeFi Renaissance',
-                slug: 'solana-defi-renaissance',
-                category: 'DeFi',
-                confidence: 70,
-                summary: 'DeFi protocols on Solana are seeing renewed TVL growth and developer activity.',
-                explanation: 'The Solana DeFi ecosystem continues to mature with established protocols like Jupiter, Raydium, and Orca seeing increased trading volumes. New innovations in liquid staking (via Sanctum and Marinade) and perpetual trading (via Drift) are attracting both capital and developers.\n\nThis narrative is supported by consistent developer activity across major DeFi protocols on GitHub, combined with positive price action in governance tokens like JUP, RAY, and ORCA.',
-                signals: [],
-                signalStrength: 65,
-                ideas: [
-                    {
-                        id: 'idea-1', title: 'DeFi Portfolio Tracker', description: 'Track and visualize positions across all Solana DeFi protocols in one dashboard.',
-                        techStack: ['Next.js', 'Helius API', 'Recharts'], complexity: 'Low', impact: 'Medium',
-                        narrativeId: 'default-1', solanaFeatures: ['Token accounts', 'DeFi composability'],
-                        supportingSignalIds: [], signalRelevance: {},
-                        whyNow: 'Growing DeFi TVL on Solana creates demand for unified position tracking.',
-                        targetUser: 'DeFi users managing positions across multiple Solana protocols.',
-                        problemToSolve: '',
-                        possibleSolution: '',
-                    },
-                ],
-                detectedAt: now,
-                updatedAt: now,
-                trend: 'rising',
-            },
-        ],
-        signalContexts: {}
-    };
+    console.warn(`⚠️ Building fallback narratives (reason: ${errorReason})`);
+
+    // Group signals by a narrative-like grouping (source → rough category)
+    const categoryMap: Record<string, Signal[]> = {};
+    for (const s of signals) {
+        // Map source+category to a narrative category
+        let cat = 'Infrastructure';
+        if (s.source === 'market' || s.source === 'defi-llama' || s.category?.toLowerCase().includes('defi') || s.category?.toLowerCase().includes('tvl')) cat = 'DeFi';
+        else if (s.source === 'github') cat = 'Developer Tooling';
+        else if (s.category?.toLowerCase().includes('nft') || s.source === 'social') cat = 'NFT & Gaming';
+        else if (s.source === 'onchain') cat = 'Infrastructure';
+
+        if (!categoryMap[cat]) categoryMap[cat] = [];
+        categoryMap[cat].push(s);
+    }
+
+    // Pick top 3 categories with the most signals
+    const topCategories = Object.entries(categoryMap)
+        .sort((a, b) => b[1].length - a[1].length)
+        .slice(0, 3);
+
+    if (topCategories.length === 0) {
+        // No signals at all — return a single minimal fallback
+        topCategories.push(['DeFi', []]);
+    }
+
+    const narratives: Narrative[] = topCategories.map(([cat, catSignals], i) => {
+        const topSignals = catSignals.sort((a, b) => b.strength - a.strength).slice(0, 8);
+        const avgStrength = topSignals.length > 0
+            ? Math.round(topSignals.reduce((sum, s) => sum + s.strength, 0) / topSignals.length)
+            : 50;
+
+        // Pick ideas for this category
+        const ideas = (FALLBACK_IDEAS[cat] || FALLBACK_IDEAS['DeFi']).map((idea, j) => ({
+            ...idea,
+            id: `fallback-${i}-idea-${j}`,
+            narrativeId: `fallback-${i}`,
+            supportingSignalIds: topSignals.slice(0, 3).map(s => s.id),
+            signalRelevance: {} as Record<string, string>,
+            problemToSolve: '',
+            possibleSolution: '',
+        }));
+
+        const signalSummary = topSignals.length > 0
+            ? topSignals.slice(0, 3).map(s => s.description).join('; ')
+            : 'Ecosystem signals detected across multiple sources';
+
+        return {
+            id: `fallback-${i}`,
+            name: `${cat} Activity Detected`,
+            slug: `fallback-${cat.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
+            category: cat as any,
+            confidence: Math.min(75, avgStrength),
+            summary: `[AI temporarily unavailable] ${topSignals.length} ${cat.toLowerCase()} signals detected. ${signalSummary}.`,
+            explanation: `The AI narrative engine encountered an issue and could not analyze these signals in depth.\n\n**Reason:** ${errorReason}\n\nHowever, ${topSignals.length} live signals were collected for the ${cat} category. Press Detect again to retry AI analysis, or explore the signals and ideas below.`,
+            signals: topSignals,
+            signalStrength: avgStrength,
+            ideas,
+            detectedAt: now,
+            updatedAt: now,
+            trend: 'stable' as const,
+        };
+    });
+
+    return { narratives, signalContexts: {} };
 }

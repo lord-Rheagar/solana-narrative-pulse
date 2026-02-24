@@ -43,11 +43,13 @@ function isAnthropicCreditError(err: any): boolean {
 
 // ── Model Configuration ─────────────────────────────────────
 export const MODELS = {
-    // Best reasoning model — used for narrative detection
+    // Reasoning model — used for narrative detection
+    // NOTE: o3-mini produces better results but takes 30-60s+ which exceeds
+    // Vercel serverless timeouts. Using gpt-4o-mini for reliable performance.
     reasoning: {
         provider: 'openai' as const,
-        model: 'o3-mini',
-        label: 'o3-mini (reasoning)',
+        model: 'gpt-4o-mini',
+        label: 'GPT-4o-mini (reasoning)',
     },
     // Fast creative model — used for idea generation
     writing: {
@@ -94,8 +96,8 @@ export async function routeToModel(
     // If Anthropic credits are exhausted, route writing tasks to o3-mini
     const useAnthropicFallback = config.provider === 'anthropic' && anthropicDisabled;
     if (useAnthropicFallback) {
-        console.log(`⚠️ Anthropic disabled (credits exhausted) — routing "${role}" to o3-mini`);
-        return await callOpenAI('o3-mini', messages, { jsonMode, maxTokens, temperature });
+        console.log(`⚠️ Anthropic disabled (credits exhausted) — routing "${role}" to gpt-4o-mini`);
+        return await callOpenAI('gpt-4o-mini', messages, { jsonMode, maxTokens, temperature });
     }
 
     try {
@@ -140,6 +142,12 @@ async function callOpenAI(
 
     const content = completion.choices[0]?.message?.content;
     if (!content) throw new Error(`Empty response from ${model}`);
+
+    // Detect error text returned as model content (e.g. "An error occurred...")
+    const lower = content.trim().toLowerCase();
+    if (lower.startsWith('an error') || lower.startsWith('i apologize') || lower.startsWith('sorry,')) {
+        throw new Error(`Model returned error text instead of completion: ${content.slice(0, 120)}`);
+    }
 
     return {
         content,

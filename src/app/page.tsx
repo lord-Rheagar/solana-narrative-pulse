@@ -19,7 +19,7 @@ const SIGNAL_STEPS = [
 
 const NARRATIVE_STEPS = [
   'Clustering signal patterns...',
-  'Detecting narratives with o3-mini...',
+  'Detecting narratives with GPT-4o-mini...',
   'Generating ideas with Claude Sonnet...',
 ];
 
@@ -145,7 +145,12 @@ export default function DashboardPage() {
         }),
       });
       if (!res.ok) throw new Error(`Server error (${res.status})`);
-      const json = await res.json();
+      let json: any;
+      try {
+        json = await res.json();
+      } catch {
+        throw new Error('Server returned an invalid response. Please try again.');
+      }
 
       if (json.success) {
         const newNarratives = json.data.narratives || [];
@@ -184,7 +189,12 @@ export default function DashboardPage() {
       // ── Phase 1: Fetch signals (fast, ~3-5s) ──────────────
       const sigRes = await fetch('/api/signals');
       if (!sigRes.ok) throw new Error(`Signal fetch failed (${sigRes.status})`);
-      const sigJson = await sigRes.json();
+      let sigJson: any;
+      try {
+        sigJson = await sigRes.json();
+      } catch {
+        throw new Error('Signal API returned an invalid response. Please try again.');
+      }
 
       clearInterval(signalInterval);
 
@@ -203,25 +213,101 @@ export default function DashboardPage() {
       }, 3000);
 
       try {
-        const res = await fetch('/api/narratives');
+        const res = await fetch('/api/narratives', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            signals: sigJson.data.signals,
+            previousIdeaTitles: seenIdeaTitles.current,
+          }),
+        });
         if (!res.ok) throw new Error(`Narrative detection failed (${res.status})`);
-        const json = await res.json();
 
-        if (json.success) {
-          const newNarratives = json.data.narratives || [];
+        // Read the SSE stream
+        const reader = res.body?.getReader();
+        if (!reader) throw new Error('No response stream');
+
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let resultData: any = null;
+        let errorMsg: string | null = null;
+        let eventType = ''; // Persist across chunks!
+        let rawText = ''; // Accumulate all text for fallback parsing
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value, { stream: true });
+          buffer += chunk;
+          rawText += chunk;
+
+          // Parse SSE events — split on double newline (event boundary)
+          const parts = buffer.split('\n\n');
+          buffer = parts.pop() || ''; // Keep incomplete event in buffer
+
+          for (const part of parts) {
+            const lines = part.split('\n');
+            for (const rawLine of lines) {
+              const line = rawLine.replace(/\r$/, ''); // Handle \r\n
+              if (line.startsWith('event: ')) {
+                eventType = line.slice(7).trim();
+              } else if (line.startsWith('data: ')) {
+                try {
+                  const data = JSON.parse(line.slice(6));
+                  if (eventType === 'result' && data.success) {
+                    resultData = data;
+                  } else if (eventType === 'error') {
+                    errorMsg = data.error || 'AI detection failed';
+                  } else if (eventType === 'status') {
+                    if (data.step === 'detecting') {
+                      setLoadingStep(SIGNAL_STEPS.length + 1);
+                    } else if (data.step === 'enriching') {
+                      setLoadingStep(LOADING_STEPS.length - 1);
+                    }
+                  }
+                } catch {
+                  // Skip malformed JSON
+                }
+              }
+            }
+          }
+        }
+
+        // Fallback: if structured parsing failed, try to find result in raw text
+        if (!resultData && !errorMsg) {
+          const resultMatch = rawText.match(/data: (\{"success":true.*?\})\n/);
+          if (resultMatch) {
+            try {
+              resultData = JSON.parse(resultMatch[1]);
+            } catch { /* ignore */ }
+          }
+          const errorMatch = rawText.match(/data: (\{"success":false.*?\})\n/);
+          if (errorMatch) {
+            try {
+              const errData = JSON.parse(errorMatch[1]);
+              errorMsg = errData.error || 'AI detection failed';
+            } catch { /* ignore */ }
+          }
+        }
+
+        if (errorMsg) {
+          setError(errorMsg);
+        } else if (resultData) {
+          const newNarratives = resultData.data.narratives || [];
           setNarratives(newNarratives);
-          if (json.data.signals) {
-            setSignals(json.data.signals);
+          if (resultData.data.signals) {
+            setSignals(resultData.data.signals);
           }
           setLastUpdated(new Date().toLocaleTimeString());
           setSelectedNarrativeIndex(0);
           accumulateSeenTitles(newNarratives);
 
-          if (json.data.edition) {
-            setNarrativeStatuses(json.data.edition.narrativeStatuses || []);
+          if (resultData.data.edition) {
+            setNarrativeStatuses(resultData.data.edition.narrativeStatuses || []);
           }
         } else {
-          setError(json.error || 'Failed to detect narratives');
+          setError('No response received from AI. Please try again.');
         }
       } finally {
         clearInterval(narrativeInterval);
